@@ -34,6 +34,36 @@
       }
     ]);
 
+    app.factory('Settings', ['$rootScope', '$window',
+      function($rootScope, $window) {
+        var obj = {
+          settings: {},
+          defaults: {
+            nsfw: false
+          },
+          get: function() {
+            var savedSettings = JSON.parse($window.localStorage.getItem('ngReddPics.settings'));
+            this.settings = angular.isObject(savedSettings) ? savedSettings : this.defaults;
+            return this.settings;
+          },
+          save: function() {
+            $window.localStorage.setItem('ngReddPics.settings', JSON.stringify(this.settings));
+            return this.settings;
+          }
+        };
+
+        obj.get();
+
+        $rootScope.$watchCollection(function() { return obj.settings; }, function(newValue) {
+          if (angular.isObject(newValue)) {
+            obj.save();
+          }
+        })
+
+        return obj;
+      }
+    ]);
+
     app.config(['$routeProvider',
       function($routeProvider) {
         $routeProvider.
@@ -51,8 +81,8 @@
       }
     ]);
 
-    app.controller('subredditCtrl', ['$scope', '$rootScope', '$routeParams', 'Reddit',
-      function($scope, $rootScope, $routeParams, Reddit) {
+    app.controller('subredditCtrl', ['$scope', '$rootScope', '$routeParams', 'Reddit', 'Settings',
+      function($scope, $rootScope, $routeParams, Reddit, Settings) {
         $rootScope.subreddit = $routeParams.sub;
         $scope.where = $routeParams.where || 'new';
         $scope.subInfo = Reddit.subreddit.get({sub: $routeParams.sub, where: 'about'});
@@ -82,7 +112,12 @@
               var imgs = [];
               for (var x in data.data.children) {
                 var imgInfo = data.data.children[x];
-                imgInfo.data.postAgo = Math.ceil((curTime - imgInfo.data.created_utc) / 60)
+                imgInfo.data.postAgo = Math.ceil((curTime - imgInfo.data.created_utc) / 60);
+
+                // NSFW Filter
+                if (Settings.settings.nsfw === false && imgInfo.over_18 === true) {
+                  continue;
+                }
 
                 if (imgCheck.test(imgInfo.data.url)) {
                   imgInfo.data.imgPath = imgInfo.data.url;
@@ -135,10 +170,16 @@
       }
     ]);
 
-    app.controller('subListCtrl', ['$scope', 'Reddit', '$resource',
-      function($scope, Reddit, $resource) {
+    app.controller('subListCtrl', ['$scope', 'Reddit', 'Settings', '$resource',
+      function($scope, Reddit, Settings, $resource) {
         $scope.Reddit = Reddit;
         $scope.subList = Reddit.subList.get();
+        $scope.nsfw = Settings.settings.nsfw || false;
+
+        $scope.toggleNSFW = function() {
+          $scope.nsfw = !$scope.nsfw;
+          Settings.settings.nsfw = $scope.nsfw;
+        }
       }
     ]);
 
@@ -284,8 +325,16 @@
     </div>
     <div class="collapse navbar-collapse" id="subList-container">
       <ul class="nav navbar-nav">
-        <li ng-repeat="sub in subList.data.children | limitTo: 10">
+        <li ng-repeat="sub in subList.data.children | limitTo: 10"
+            ng-class="{'hidden-md': ($index > 7), 'hidden-sm': ($index > 5)}">
           <a href="#/r/{{sub.data.display_name}}">{{sub.data.display_name}}</a>
+        </li>
+        <li>
+          <button id="nsfw-toggle" type="button" ng-click="toggleNSFW()"
+                  class="btn btn-xs btn-default navbar-btn"
+                  ng-class="{'btn-danger': nsfw, 'btn-success': !nsfw}">
+            NSFW <span ng-show="nsfw">ON</span><span ng-show="!nsfw">OFF</span>
+          </button>
         </li>
       </ul>
     </div><!--/.nav-collapse -->
