@@ -62,7 +62,7 @@
 
         var imgCheck = /(jpe?g|gif|png|tiff)$/i;
 
-        $scope.getMore = function() {
+        $scope.getMore = function(fillPage) {
           if ($scope.loading === true) {
             // We are already loading
             return;
@@ -72,7 +72,10 @@
           return Reddit.subreddit.get({sub: $routeParams.sub, after: $scope.lastItem, where: $scope.where},
             function(data) {
             if (data && data.data && angular.isArray(data.data.children)) {
-              $scope.pages++;
+              if (!fillPage) {
+                $scope.pages++;
+              }
+
               var curTime = Math.floor(new Date().getTime()/1000);
               var imgs = [];
               for (var x in data.data.children) {
@@ -105,7 +108,7 @@
 
               // If we didn't get that may images, go again
               if ($scope.items.length < $scope.pages * 20) {
-                $scope.getMore();
+                $scope.getMore(true);
               }
             }
           });
@@ -283,8 +286,8 @@
   <div class="pic-main-container">
     <div class="pic-img-container">
       <a href="{{info.url}}" target="_blank">
-        <img ng-show="info.imgType === 'img'" ng-src="{{info.imgPath}}" width="500px" height="auto" remove-broken />
-        <span ng-show="info.imgType === 'album'" class="pic-album-icon glyphicon glyphicon-folder-open"></span>
+        <img ng-if="info.imgType === 'img'" ng-src="{{info.imgPath}}" width="500px" height="auto" remove-broken />
+        <span ng-if="info.imgType === 'album'" class="pic-album-icon glyphicon glyphicon-folder-open"></span>
       </a>
     </div>
     <div class="pic-img-info">
