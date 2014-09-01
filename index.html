@@ -55,10 +55,12 @@
       function($scope, $rootScope, $routeParams, Reddit) {
         $rootScope.subreddit = $routeParams.sub;
         $scope.where = $routeParams.where || 'new';
+        $scope.subInfo = Reddit.subreddit.get({sub: $routeParams.sub, where: 'about'});
         $scope.lastItem;
         $scope.items = [];
         $scope.pages = 0;
         $scope.loading = false;
+        $scope.error = false;
 
         var imgCheck = /(jpe?g|gif|png|tiff)$/i;
 
@@ -102,15 +104,23 @@
                   // no image detected
                 }
               }
-              $scope.items = $scope.items.concat(imgs);
-              $scope.lastItem = data.data.after;
-              $scope.loading = false;
 
-              // If we didn't get that may images, go again
-              if ($scope.items.length < $scope.pages * 20) {
-                $scope.getMore(true);
+              if (imgs.length > 0) {
+                $scope.items = $scope.items.concat(imgs);
+                $scope.lastItem = data.data.after;
+                $scope.loading = false;
+
+                // If we didn't get that may images, go again
+                if ($scope.items.length < $scope.pages * 20) {
+                  $scope.getMore(true);
+                }
+              } else {
+                $scope.error = true;
               }
             }
+          }, function(error) {
+            $scope.loading = false;
+            $scope.error = true;
           });
         }
 
@@ -175,8 +185,19 @@
       padding-top: 75px;
     }
 
-    #title-subreddit {
+    #subreddit-title {
       font-size: 1.4em;
+      vertical-align: bottom;
+    }
+
+    #subreddit-desc {
+      vertical-align: bottom;
+      font-style: italic;
+    }
+
+    .subreddit-img {
+      height: 75px;
+      width: 75px;
     }
 
     .pic-main-container {
@@ -185,9 +206,20 @@
 
     .pic-img-container {
       overflow: hidden;
-      width: 330px;
-      height: 330px;
       border: 1px solid #ec971f;
+    }
+
+    @media(min-width:1000px) {
+      .pic-img-container {
+        overflow: hidden;
+        width: 330px;
+        height: 330px;
+        border: 1px solid #ec971f;
+      }
+
+      .pic-img-overlay {
+        width: 97%;
+      }
     }
 
     .pic-album-icon {
@@ -198,9 +230,8 @@
       margin-top: 100px;
     }
 
-    .pic-img-info {
+    .pic-img-overlay {
       position: absolute;
-      bottom: 0;
       left: 10px;
       width: 330px;
       display: none;
@@ -210,7 +241,15 @@
       color: #eee;
     }
 
-    .pic-main-container:hover .pic-img-info {
+    .pic-img-votes {
+      top: 0;
+    }
+
+    .pic-img-info {
+      bottom: 0;
+    }
+
+    .pic-main-container:hover .pic-img-overlay {
       display: block;
     }
 
@@ -258,18 +297,23 @@
 
 <script type="text/ng-template" id="subreddit-grid">
   <div class="well well-sm">
-    <a href="https://reddit.com/r/{{$root.subreddit}}" id="title-subreddit">
+    <a href="https://reddit.com/r/{{$root.subreddit}}" id="subreddit-title">
+      <img ng-if="subInfo.data.header_img" class="subreddit-img img-rounded"
+           ng-src="{{subInfo.data.header_img}}" />
       /r/{{$root.subreddit}}
     </a>
+    <span id="subreddit-desc">
+      {{subInfo.data.public_description}}
+    </span>
   </div>
 
-  <div class="row">
+  <div ng-if="!error" class="row">
     <div class="col-xs-12 col-sm-12 col-md-4 col-lg-3" id="{{item.name}}"
          ng-repeat="item in items">
       <pic info="item"></pic>
     </div>
   </div>
-  <div class="row">
+  <div ng-if="!error" class="row">
     <div class="get-more label label-info col-xs-12 col-sm-12 col-md-12 col-lg-12"
          ng-click="getMore()" in-viewport>
       <span ng-hide="loading">
@@ -280,17 +324,37 @@
       </span>
     </div>
   </div>
+  <div ng-if="error" class="jumbotron">
+    <h1>Well... this is awkward</h1>
+    <p>
+      Are you sure /r/{{$root.subreddit}} is a thing?  I am not getting anything... <br />
+      Not all subreddits are full of juicy images.  This appears to be one of them.
+  </div>
 </script>
 
 <script type="text/ng-template" id="grid-item-pic">
   <div class="pic-main-container">
     <div class="pic-img-container">
       <a href="{{info.url}}" target="_blank">
-        <img ng-if="info.imgType === 'img'" ng-src="{{info.imgPath}}" width="500px" height="auto" remove-broken />
+        <img ng-if="info.imgType === 'img'" ng-src="{{info.imgPath}}"
+             class="thumbnail img-responsive" remove-broken />
         <span ng-if="info.imgType === 'album'" class="pic-album-icon glyphicon glyphicon-folder-open"></span>
       </a>
     </div>
-    <div class="pic-img-info">
+    <div class="pic-img-overlay pic-img-votes">
+      <span class="votes-count">
+        {{info.ups}}
+      </span>
+      <span class="votes-arrow glyphicon glyphicon-arrow-up" style="color: green"></span>
+      <span class="votes-count">
+        {{info.downs}}
+      </span>
+      <span class="votes-arrow glyphicon glyphicon-arrow-down" style="color: red"></span>
+      <span class="pull-right">
+        <span class="glyphicon glyphicon-fullscreen"></span>
+      </span>
+    </div>
+    <div class="pic-img-overlay pic-img-info">
       <a href="{{info.url}}" class="pic-img-title" title="{{info.title}}">
         {{info.title | limitTo: 30}}
         <span ng-show="info.title.length > 30">...</span>
