@@ -64,8 +64,11 @@
       }
     ]);
 
-    app.config(['$routeProvider',
-      function($routeProvider) {
+    app.config(['$routeProvider', '$httpProvider',
+      function($routeProvider, $httpProvider) {
+        //Enable cross domain calls
+        $httpProvider.defaults.useXDomain = true;
+
         $routeProvider.
           when('/r/:sub/:where', {
             templateUrl: 'subreddit-grid',
